@@ -1,4 +1,3 @@
-# super-jkdevops
 apiVersion: v1
 kind: ServiceAccount
 metadata:
