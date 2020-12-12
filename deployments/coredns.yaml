@@ -4,7 +4,7 @@ metadata:
   name: coredns
   namespace: kube-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   labels:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 ---
-apiVersion: rbac.authorization.k8s.io/v1
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   annotations:
@@ -45,7 +45,8 @@ metadata:
   name: coredns
   namespace: kube-system
 data:
-  .:53 {
+  Corefile: |
+    .:53 {
         errors
         health
         kubernetes cluster.local in-addr.arpa ip6.arpa {
@@ -61,7 +62,7 @@ data:
         loadbalance
     }
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: coredns
@@ -70,9 +71,7 @@ metadata:
     k8s-app: kube-dns
     kubernetes.io/name: "CoreDNS"
 spec:
-  # replicas: not specified here:
-  # 1. Default is 1.
-  # 2. Will be tuned in real time if DNS horizontal auto-scaling is turned on.
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -85,24 +84,12 @@ spec:
       labels:
         k8s-app: kube-dns
     spec:
-      priorityClassName: system-cluster-critical
       serviceAccountName: coredns
       tolerations:
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
         - key: "CriticalAddonsOnly"
           operator: "Exists"
-      nodeSelector:
-        kubernetes.io/os: linux
-      affinity:
-         podAntiAffinity:
-           preferredDuringSchedulingIgnoredDuringExecution:
-           - weight: 100
-             podAffinityTerm:
-               labelSelector:
-                 matchExpressions:
-                   - key: k8s-app
-                     operator: In
-                     values: ["kube-dns"]
-               topologyKey: kubernetes.io/hostname
       containers:
       - name: coredns
         image: coredns/coredns:1.8.0
@@ -145,11 +132,6 @@ spec:
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 5
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8181
-            scheme: HTTP
       dnsPolicy: Default
       volumes:
         - name: config-volume
@@ -174,14 +156,11 @@ metadata:
 spec:
   selector:
     k8s-app: kube-dns
-  clusterIP: 10.96.0.20
+  clusterIP: 10.96.0.10
   ports:
   - name: dns
     port: 53
     protocol: UDP
   - name: dns-tcp
     port: 53
-    protocol: TCP
-  - name: metrics
-    port: 9153
     protocol: TCP
