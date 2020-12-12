@@ -45,25 +45,21 @@ metadata:
   name: coredns
   namespace: kube-system
 data:
-  Corefile: |
-    .:53 {
+  .:53 {
         errors
-        health {
-          lameduck 5s
-        }
-        ready
-        kubernetes CLUSTER_DOMAIN REVERSE_CIDRS {
+        health
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          upstream
           fallthrough in-addr.arpa ip6.arpa
         }
         prometheus :9153
-        forward . UPSTREAMNAMESERVER {
-          max_concurrent 1000
-        }
+        proxy . /etc/resolv.conf
         cache 30
         loop
         reload
         loadbalance
-    }STUBDOMAINS
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
